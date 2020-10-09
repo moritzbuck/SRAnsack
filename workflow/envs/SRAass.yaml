@@ -1,0 +1,20 @@
+name: SRAass
+channels:
+  - bioconda
+  - defaults
+  - conda-forge
+dependencies:
+  - tqdm
+  - sratools
+  - fastp
+  - megahit
+  - bowtie2
+  - samtools
+  - biopython
+  - checkm-genome
+  - prodigal
+  - hmmer
+  - khmer
+  - sourmash
+  - bbmap
+  - parallel-fastq-dump

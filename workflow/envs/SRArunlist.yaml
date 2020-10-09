@@ -1,0 +1,7 @@
+name: SRArunlist
+channels:
+  - bioconda
+  - defaults
+dependencies:
+  - tqdm
+  - biopython
