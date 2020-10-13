@@ -4,22 +4,6 @@ from os.path import join as pjoin
 from xml.etree import ElementTree as ET
 from tqdm import tqdm
 
-script , organism, username  = sys.argv
-
-all_orgs = ["peat metagenome","seawater metagenome","marine metagenome","marine plankton metagenome   ","marine sediment metagenome  ","karst metagenome   ","lagoon metagenome   ","lake water metagenome","glacier lake metagenome","freshwater metagenome   ","freshwater sediment metagenome","aquatic metagenome","bog metagenome","drinking water metagenome","estuary metagenome","Winogradsky column metagenome"]
-"water metagenome"
-
-Entrez.email = username
-
-query = '({orgs}) AND "strategy wgs"[Properties] AND "platform illumina"[Properties] AND "filetype fastq"[Properties]'
-
-sra_ids = Entrez.read(Entrez.esearch(db="SRA", term = query.format(orgs = " OR ".join(['"{organism}"[Organism]'.format(organism = a) for a in all_orgs])
-) , retmax=100000))['IdList']
-
-sras_metadat = dict()
-for id in tqdm(sra_ids):
-    if id not in sras_metadat:
-        sras_metadat[id] = parse_exp_summary(id)
 
 def parse_exp_summary(sra_id):
     sra_summary = []
@@ -50,6 +34,8 @@ def parse_exp_summary(sra_id):
             md_dict['taxon_id'] = child.attrib['taxid']
         elif child.tag == "Instrument" :
             md_dict['sequencer'] = ";".join(child.attrib.values())
+        elif child.tag == "Library_descriptor":
+            md_dict.update({cc.tag : cc.text for c in dat for cc in c if cc.tag not in [ 'LIBRARY_NAME', 'LIBRARY_LAYOUT' ] })
         elif child.tag == "Bioproject":
             md_dict['study_id'] = child.text
         elif child.tag == "Biosample":
@@ -73,3 +59,20 @@ def fetch_sample_data(sample_id):
     atts = [l for l in dat if l.tag == "Attributes"][0]
     samp_dict.update({l.attrib['attribute_name'] : l.text  for l in atts})
     return samp_dict
+
+script , organism, username  = sys.argv
+
+all_orgs = ["peat metagenome","seawater metagenome","marine metagenome","marine plankton metagenome","marine sediment metagenome","karst metagenome","lagoon metagenome","lake water metagenome","glacier lake metagenome","freshwater metagenome","freshwater sediment metagenome","aquatic metagenome","bog metagenome","drinking water metagenome","estuary metagenome","Winogradsky column metagenome", 'alkali sediment metagenome', 'sediment metagenome']
+"water metagenome"
+
+Entrez.email = username
+
+query = '({orgs}) AND "strategy wgs"[Properties] AND "platform illumina"[Properties] AND "filetype fastq"[Properties]'
+
+sra_ids = Entrez.read(Entrez.esearch(db="SRA", term = query.format(orgs = " OR ".join(['"{organism}"[Organism]'.format(organism = a) for a in all_orgs])
+) , retmax=100000))['IdList']
+
+sras_metadat = dict()
+for id in tqdm(sra_ids):
+    if id not in sras_metadat:
+        sras_metadat[id] = parse_exp_summary(id)
