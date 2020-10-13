@@ -18,3 +18,4 @@ dependencies:
   - sourmash
   - bbmap
   - parallel-fastq-dump
+  - metabat2

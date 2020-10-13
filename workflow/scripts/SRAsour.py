@@ -43,4 +43,5 @@ def compare2sigs(sig):
 
 
 compares = dict()
-for i,q in tqdm(enumerate(sigs)):
+for q in tqdm(sigs):
+    comapres.update(compare2sigs(q))

@@ -19,6 +19,16 @@ def title2log(title, llen = 90) :
         handle.writelines("\n\n" + text + "\n\n")
     print(text, file = stderr, flush = True)
 
+def into_line(text, llen = 90) :
+    text_insert =  text
+    prefix = "="*floor((llen-2-len(text_insert))/2) + " "
+    sufffix = " " + "="*ceil((llen-2-len(text_insert))/2)
+    text = prefix + text_insert + sufffix
+    with open(pjoin(temp_folder, SRA_ID + ".log"), "a") as handle:
+        handle.writelines("\n\n" + text + "\n\n")
+    print(text, file = stderr, flush = True)
+
+
 script , SRA_ID, temp_folder, final_location, threads, len_cutoff, max_redundance, min_completeness , rarefaction = sys.argv
 
 
@@ -122,6 +132,8 @@ reads3 = " ".join(clean_libs)
 call(read_proc_line.format(sraid = SRA_ID, temp=temp_folder, threads = threads, reads = reads3, in_reads = reads2, out_reads=sub_libs, subcount = rarefaction), shell=True)
 
 title2log("Moving to final location and cleaning-up")
+into_line("Finished with {} bins".format(len(chekm_out)))
+
 library_loc = pjoin(final_location, "data","library", SRA_ID)
 os.makedirs(library_loc, exist_ok=True)
 os.makedirs(pjoin(library_loc, "bins"), exist_ok=True)
