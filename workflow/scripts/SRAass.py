@@ -26,7 +26,7 @@ len_cutoff = int(len_cutoff)
 max_redundance = float(max_redundance)
 min_completeness = float(min_completeness)
 
-sratools_line = "parallel-fastq-dump --threads {threads} -s {sraid} --split-3 --skip-technical --outdir {temp}  >> {temp}/{sraid}.log  2>&1"
+sratools_line = "parallel-fastq-dump --threads {threads} -s {sraid} --split-e --skip-technical --outdir {temp}  >> {temp}/{sraid}.log  2>&1"
 
 temp_folder = pjoin(temp_folder, SRA_ID)
 os.makedirs(temp_folder, exist_ok=True)
