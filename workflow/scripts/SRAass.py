@@ -134,7 +134,7 @@ call(read_proc_line.format(sraid = SRA_ID, temp=temp_folder, threads = threads, 
 title2log("Moving to final location and cleaning-up")
 into_line("Finished with {} bins".format(len(chekm_out)))
 
-library_loc = pjoin(final_location, "data","library", SRA_ID)
+library_loc = pjoin(final_location, "data","libraries", SRA_ID)
 os.makedirs(library_loc, exist_ok=True)
 os.makedirs(pjoin(library_loc, "bins"), exist_ok=True)
 
