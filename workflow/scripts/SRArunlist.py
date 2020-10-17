@@ -67,7 +67,7 @@ all_orgs = ["peat metagenome","seawater metagenome","marine metagenome","marine 
 
 Entrez.email = username
 
-query = '({orgs}) AND "strategy wgs"[Properties] AND "platform illumina"[Properties] AND "filetype fastq"[Properties]'
+query = '({orgs}) AND "strategy wgs"[Properties] AND "platform illumina"[Properties]'
 
 sra_ids = Entrez.read(Entrez.esearch(db="SRA", term = query.format(orgs = " OR ".join(['"{organism}"[Organism]'.format(organism = a) for a in all_orgs])
 ) , retmax=100000))['IdList']
@@ -76,3 +76,6 @@ sras_metadat = dict()
 for id in tqdm(sra_ids):
     if id not in sras_metadat:
         sras_metadat[id] = parse_exp_summary(id)
+
+with open("/home/moritz/kadath/data/SRAprov/data/dbs/sra_data.json", "w") as handle:
+    json.dump(sras_metadat, handle, indent=4, sort_keys=True)
