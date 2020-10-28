@@ -149,7 +149,9 @@ lons = sra_md.loc[sra_md.study == bad_study, 'lon']
 sra_md.loc[sra_md.study == bad_study, 'lat'] = lons
 sra_md.loc[sra_md.study == bad_study, 'lon'] = lats
 sra_md.loc[sra_md.study == bad_study, 'coord'] =  [tolat_lon(float(b),float(a)) for a, b in zip(lats, lons)]
-
+sra_md['collection_date'] = [ attrs[i].get('collection_date', "") for i in sra_md.index]
+sra_md['release_date'] = [ attrs[i].get('ENA-FIRST-PUBLIC', attrs[i].get('SRA-FIRST-PUBLIC', "")) for i in sra_md.index]
+sra_md['collection_year'] = [";".join([l for l in re.split(r"[-/ ]", d) if len(l) == 4]) for d in sra_md['collection_date']]
 
 sra_md.to_csv(pjoin(data, "dbs", "sra_table.csv"), index_label= "SRA_ID")
 

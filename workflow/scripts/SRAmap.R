@@ -9,10 +9,14 @@ world <- ne_countries(scale = "medium", returnclass = "sf")
 
 lakes = fread("sra_table.csv")
 lakes = lakes[lon != "NA"]
+lakes = lakes[LIBRARY_SELECTION != "PCR"]
+lakes = lakes[abs(lakes$lat)<90,]
+
 lakes_derep = lakes[,.(lon = lon[1], lat = lat[1], nb_bases = as.numeric(sum(nb_bases)), taxon = taxon[1], types = length(levels(factor(taxon))), nb_samples = length(taxon)),  by=coord]
+lakes_derep[, sediment := grepl("sediment", taxon)]
+
 
 lakes_sf = st_as_sf(x = lakes_derep, coords = c("lon", "lat"), crs=  "+proj=longlat")
-
 
 ggplot(data = world) + geom_sf(fill="floralwhite", alpha=0.5, col="lightgray")+geom_sf(data=lakes_sf, mapping = aes(col=taxon, size = nb_bases), shape=18)+coord_sf(xlim=c(-180, 180), ylim=c(-90,90))+scale_size_continuous(range = c(2, 10))
 #  geom_sf_text_repel(data=lakes_sf, aes(label=Lake), size=3, force = 20, nudge_x = -4, seed = 17)+xlab("")+ylab("")
@@ -46,6 +50,6 @@ globe = function(lat, lon, zoom = 1){
   ggplot(data = world_pretty) + geom_sf(fill="floralwhite", alpha=0.5, col="lightgray")+
     geom_sf(data=lakes_pretty, mapping = aes(col=taxon, size = nb_bases), shape=18)+
     scale_size_continuous(range = c(2, 10))+
-    coord_sf(xlim=xwind, ylim=ywind, expand = FALSE)
+    coord_sf(xlim=xwind, ylim=ywind, expand=TRUE)
 
 }

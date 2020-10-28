@@ -1,5 +1,5 @@
 {
-  "scratch" : "/tmp/",
+  "scratch" : "/home/moritz/temo/",
   "ass_len_cutoff" : 2500,
   "max_redundance" : 3,
   "min_completeness" : 30,
