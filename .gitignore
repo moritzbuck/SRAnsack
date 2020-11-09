@@ -119,3 +119,4 @@ scratch/
 *.out
 core.*
 slurm*.out
+.snakemake
