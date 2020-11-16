@@ -1,47 +1,77 @@
 import json
-import pandas
 from os.path import join as pjoin
 from subprocess import call
 import os
 from tqdm import tqdm
-import tempfile
+from sourmash import MinHash
+from sourmash.signature import SourmashSignature
+from sourmash.signature import load_signatures
+from multiprocessing import Pool
+from numba import jit
+
+
+def load_sig(f):
+    with open(f) as handle:
+        ll = "".join( handle.readlines()).replace('\n','')
+    return list(load_signatures(ll)) [0]
+
+@jit
+def test(i,j):
+    return i+j
+
+def load_minhash(f):
+    with open(f) as handle:
+        ll = handle.read()
+    ll = [int(t) for t in ll.split('"mins":[')[1].split('],"md5sum"')[0].split(",")]
+    return ll
+
 
 root = "/home/moritz/data/SRAprov/data"
 threash = 0.001
 nb_matches = 10000
 
-sigs = []
-for v in tqdm(os.walk(root)):
-    for vv in v[2]:
-        if vv.endswith(".sig.gz"):
-            sigs += [pjoin(root,v[0], vv)]
+all_sigs = ["sigs/" + s for s in os.listdir('sigs')]
 
-with open(pjoin(root, "dbs", "all_sigs.txt"), "w") as handle:
-    handle.writelines([l + "\n" for l in sigs])
+block_size = 100
 
-index_cmd = "sourmash index   -k31  {root}/dbs/SRAaquas.sbt.json  --from-file {root}/dbs/all_sigs.txt {root}/library/SRR10176937/SRR10176937.sig.gz".format(root=root)
-cmd = "sourmash search -q --threshold {threash} -o {tempfile} --num-results {nb_res}  -k31     {sig} {root}/dbs/SRAaquas.sbt.json"
-
-call(index_cmd, shell=True)
+sig_blocks = [all_sigs[i:(i+block_size)] for i in list(range(0,len(all_sigs), block_size))]
 
 
-def compare2sigs(sig):
-    temp_out = tempfile.NamedTemporaryFile()
-    idd = sig.split("/")[-1][:-7]
-
-    imp_cmd = cmd.format(tempfile = temp_out.name, sig = sig, root = root, threash = threash, nb_res= nb_matches)
-    call(imp_cmd, shell=True)
-
-    vals = dict()
-    with open(temp_out.name) as handle:
-        head = handle.readline()[:-1]
-        for l in handle.readlines():
-            stuff = l[:-1].split(",")
-            vals[(idd, stuff[1])] = float(stuff[0])
-    return vals
+block_order = [(i,j) for i,b in enumerate(sig_blocks) for j,v in enumerate(sig_blocks)]
 
 
+def run_bloc(i):
+    sub_sigs_1 = {v.split("/")[-1][:-4] : load_sig(v) for v in sig_blocks[block_order[i][0]]}
+    sub_sigs_2 = {v.split("/")[-1][:-4] : load_sig(v) for v in sig_blocks[block_order[i][1]]}
+    dists = {(k,l) : v.similarity(w, ignore_abundance=True) for k,v in sub_sigs_1.items() for l,w in sub_sigs_2.items()}
+    dists = {k : v for k,v in dists.items() if v >0.05 and  k[0] != k[1]}
+    print("Done bloc:", i)
+    return dists
 
-compares = dict()
-for q in tqdm(sigs):
-    comapres.update(compare2sigs(q))
+@jit
+def run_bloc_fast(i):
+    b1 = {v.split("/")[-1][:-4] : load_minhash(v) for v in sig_blocks[block_order[i][0]]}
+    b2 = {v.split("/")[-1][:-4] : load_minhash(v) for v in sig_blocks[block_order[i][1]]}
+
+#    sub_sigs = {v : load_minhash("sigs/" + v + ".sig") for v in b1.union(b2)}
+
+    dists = {(k,l) : len(v.intersection(w))/len(v.union(w))  for k,v in b1.items() for l,w in b2.items()}
+    dists = {k : v for k,v in dists.items() if v >0.05 and  k[0] != k[1]}
+    print("Done bloc:", i)
+    return dists
+
+
+def timer(fct, i):
+    start = timeit.default_timer()
+    ret = fct(i)
+    stop = timeit.default_timer()
+    print('Time: ', stop - start)
+    return ret
+
+
+pool = Pool(processes=6)
+
+p = pool.map(run_bloc, list(range(len(block_order))))
+
+
+def test1(ll):
