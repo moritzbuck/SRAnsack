@@ -29,12 +29,13 @@ def into_line(text, llen = 90) :
     print(text, file = stderr, flush = True)
 
 
-script , SRA_ID, temp_folder, final_location, threads, len_cutoff, max_redundance, min_completeness , rarefaction = sys.argv
+script , SRA_ID, temp_folder, final_location, threads, len_cutoff, max_redundance, min_completeness , rarefaction, retries = sys.argv
 
 
 len_cutoff = int(len_cutoff)
 max_redundance = float(max_redundance)
 min_completeness = float(min_completeness)
+retries = int(retries)
 
 sratools_line = "parallel-fastq-dump --tmpdir {temp}  --threads {threads} -s {sraid} --split-e --skip-technical --outdir {temp}  >> {temp}/{sraid}.log  2>&1"
 
@@ -44,7 +45,12 @@ os.makedirs(temp_folder, exist_ok=True)
 title2log("Starting SRA " + SRA_ID)
 
 title2log("Downloading reads from SRA")
-call(sratools_line.format(sraid = SRA_ID, temp = temp_folder, threads = threads), shell = True)
+
+i=0
+while len([i for i in os.listdir(temp_folder) if i.split("/")[-1].startswith(SRA_ID) and i.endswith(".fastq")]) == 0 and i < retries:
+    into_line("Try : " + str(i+1))
+    call(sratools_line.format(sraid = SRA_ID, temp = temp_folder, threads = threads), shell = True)
+    i += 1
 
 read_libs = [pjoin(temp_folder,i) for i in os.listdir(temp_folder) if i.split("/")[-1].startswith(SRA_ID) and i.endswith(".fastq")]
 paired = True if len(read_libs)  > 1 else False
@@ -68,6 +74,7 @@ megahit_line = "megahit {reads} -t {threads} -o {temp}/assembly 2>> {temp}/{srai
 title2log("Assembling")
 call(megahit_line.format(reads = reads, threads = threads, sraid = SRA_ID, temp = temp_folder), shell = True)
 
+# optimize mem usage of this
 seqs = [s for s in SeqIO.parse(pjoin(temp_folder, "assembly", "final.contigs.fa"), "fasta") if len(s) > len_cutoff]
 
 zeros = len(str(len(seqs)))
@@ -77,7 +84,7 @@ for i,s in enumerate(seqs):
     s.description = ""
 
 SeqIO.write(seqs, pjoin(temp_folder, "assembly.fna"), "fasta")
-
+# to here
 
 bowtie_lines = """
 bowtie2-build --threads {threads} {temp}/assembly.fna {temp}/index  >> {temp}/{sraid}.log 2>&1

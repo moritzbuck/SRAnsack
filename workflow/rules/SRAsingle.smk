@@ -10,9 +10,9 @@ rule SRAass:
              signatures = "{root}/data/libraries/{sra_id}/{sra_id}.sig.gz",
              qc = "{root}/data/libraries/{sra_id}/{sra_id}.fastp.json.gz",
              log = "{root}/data/libraries/{sra_id}/{sra_id}.log.gz"
-    params : script = "workflow/scripts/SRAass.py", scratch = params['scratch'], len_cutoff= params['ass_len_cutoff'], max_redundance = params['max_redundance'], min_completeness = params['min_completeness'], rarefaction = params['rarefaction_read_collection']
+    params : script = "workflow/scripts/SRAass.py", scratch = params['scratch'], len_cutoff= params['ass_len_cutoff'], max_redundance = params['max_redundance'], min_completeness = params['min_completeness'], rarefaction = params['rarefaction_read_collection'], retries = params['retries']
     threads : 24
     conda : "../envs/SRAass.yaml"
     shell : """
-        python {params.script} {wildcards.sra_id} {params.scratch} {wildcards.root} {threads} {params.len_cutoff} {params.max_redundance} {params.min_completeness} {params.rarefaction}
+        python {params.script} {wildcards.sra_id} {params.scratch} {wildcards.root} {threads} {params.len_cutoff} {params.max_redundance} {params.min_completeness} {params.rarefaction} {params.retries}
         """

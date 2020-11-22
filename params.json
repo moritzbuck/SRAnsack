@@ -3,5 +3,6 @@
   "ass_len_cutoff" : 2500,
   "max_redundance" : 3,
   "min_completeness" : 30,
-  "rarefaction_read_collection" : 100000
+  "rarefaction_read_collection" : 100000,
+  "retries" : 10
 }
