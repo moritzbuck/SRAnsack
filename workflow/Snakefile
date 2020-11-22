@@ -9,7 +9,8 @@ data = pjoin(root, "data")
 with open(pjoin(data, "dbs", "sra_data.json")) as handle:
     sra_md = json.load(handle)
 
-black_list = {'SRR2657549', 'SRR12682498', 'SRR12681850', 'SRR9617869', 'SRR10168434', 'SRR9023608'}
+black_list = {'SRR2657549', 'SRR12682498', 'SRR12681850', 'SRR9617869', 'SRR10168434', 'SRR9616616', 'SRR9616645', 'SRR9616610'}
+
 
 #sras_to_do = [v['SRA_ID'] for v in sra_md.values() if float(v['nb_bases']) > 10000000]
 sras_to_do = [v['SRA_ID'] for v in sra_md.values() if float(v['nb_bases']) < 100000000 ]#and v not in black_list]
