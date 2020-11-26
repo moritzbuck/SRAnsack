@@ -2,6 +2,7 @@ include : "rules/SRAsingle.smk"
 
 from os.path import join as pjoin
 import json
+import os
 
 root = "/home/moritz/data/SRAprov/"
 data = pjoin(root, "data")
@@ -10,13 +11,32 @@ with open(pjoin(data, "dbs", "sra_data.json")) as handle:
     sra_md = json.load(handle)
 
 black_list = {'SRR2657549', 'SRR12682498', 'SRR12681850', 'SRR9617869', 'SRR10168434', 'SRR9616616', 'SRR9616645', 'SRR9616610'}
+logs = [log for log in os.listdir() if log.endswith(".out") and log.startswith("slurm-")]
 
+def parse_log(log):
+    idd = None
+    fail = False
+    done = False
+    running = True
+    with open(log) as handle:
+        for l in handle:
+            if 'Starting SRA' in l:
+                idd = l.split('Starting SRA ')[1].split(' started at')[0]
+            if 'fail' in l:
+                fail = True
+                running = False
+            if "bins " in l :
+                done = True
+                running = False
+    if not idd:
+        fail = True
+        running = False
+    return {'SRA_ID' : idd , 'failed' : fail, 'done' : done, 'running' : running}
+logs = [parse_log(l) for l in logs]
+runnings = set([l['SRA_ID'] for l in logs if l['running']])
 
-#sras_to_do = [v['SRA_ID'] for v in sra_md.values() if float(v['nb_bases']) > 10000000]
-sras_to_do = [v['SRA_ID'] for v in sra_md.values() if float(v['nb_bases']) < 100000000 ]#and v not in black_list]
+sras_to_do = [v['SRA_ID'] for v in sra_md.values() if float(v['nb_bases']) < 100000000 and v['SRA_ID'] not in runnings]
 
-sras_to_do = [v['SRA_ID'] for v in sra_md.values() if float(v['nb_bases']) > 100000000 and v['SRA_ID'] not in black_list]
-#sras_to_do = black_list
 print("#We have ", len(sras_to_do))
 
 rule all :
