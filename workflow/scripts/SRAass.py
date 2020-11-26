@@ -69,10 +69,10 @@ call(fastp_line.format(lib1 = read_libs[0], out1 = clean_libs[0],
 ), shell = True)
 
 reads = ("-1 " + clean_libs[0] + " -2 " + clean_libs[1]) if paired else "-r " + clean_libs[0]
-megahit_line = "megahit {reads} -t {threads} -o {temp}/assembly 2>> {temp}/{sraid}.log"
+megahit_line = "megahit {reads} -t {threads} -o {temp}/assembly --min-contig-len {min_len} 2>> {temp}/{sraid}.log"
 
 title2log("Assembling")
-call(megahit_line.format(reads = reads, threads = threads, sraid = SRA_ID, temp = temp_folder), shell = True)
+call(megahit_line.format(reads = reads, threads = threads, sraid = SRA_ID, temp = temp_folder, min_len = len_cutoff), shell = True)
 
 # optimize mem usage of this
 seqs = [s for s in SeqIO.parse(pjoin(temp_folder, "assembly", "final.contigs.fa"), "fasta") if len(s) > len_cutoff]
