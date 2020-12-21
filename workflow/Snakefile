@@ -11,7 +11,7 @@ with open(pjoin(data, "dbs", "sra_data.json")) as handle:
     sra_md = json.load(handle)
 
 
-black_list = {'SRR2657549', 'SRR12682498', 'SRR12681850', 'SRR9617869', 'SRR10168434', 'SRR9616616', 'SRR9616645', 'SRR9616610', 'SRR9617900', 'SRR9617649'}
+black_list = {'SRR2657549', 'SRR12682498', 'SRR12681850', 'SRR9617869', 'SRR10168434', 'SRR9616616', 'SRR9616645', 'SRR9616610', 'SRR9617900', 'SRR9617649' , 'SRR9617649', 'SRR9023608','SRR9617900', 'SRR12681864', 'SRR10072857', 'SRR9616645', 'SRR9023608', 'SRR2657558'}
 
 logs = [log for log in os.listdir() if log.endswith(".out") and log.startswith("slurm-")]
 
@@ -37,7 +37,7 @@ def parse_log(log):
 logs = [parse_log(l) for l in logs]
 runnings = set([l['SRA_ID'] for l in logs if l['running']])
 
-sras_to_do = [v['SRA_ID'] for v in sra_md.values() if float(v['nb_bases']) > 100000000 and v['SRA_ID'] not in runnings]
+sras_to_do = [v['SRA_ID'] for v in sra_md.values() if v['SRA_ID'] not in black_list and float(v['nb_bases']) > 100000000 and v['SRA_ID'] not in runnings]
 
 
 print("#We have ", len(sras_to_do))
