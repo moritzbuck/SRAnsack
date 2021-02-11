@@ -7,6 +7,9 @@ from sourmash import MinHash
 from sourmash.signature import SourmashSignature
 from sourmash.signature import load_signatures
 from multiprocessing import Pool
+import sys
+
+run_id = int(os.environ['run_id'])
 
 def load_sig(f):
     with open(f) as handle:
@@ -25,12 +28,24 @@ nb_matches = 10000
 
 all_sigs = ["sigs/" + s for s in os.listdir('sigs') if s.endswith(".sig")]
 
-block_size = 50
+block_size = 37
 
 sig_blocks = [all_sigs[i:(i+block_size)] for i in list(range(0,len(all_sigs), block_size))]
 
 
 block_order = [(i,j) for i,b in enumerate(sig_blocks) for j,v in enumerate(sig_blocks)]
+
+bsize = int(len(block_order)/100)
+print("Doing block {} to {} out of {}".format(run_id*bsize, ((run_id+1)*bsize), len(block_order)))
+block_order = block_order[run_id*bsize:((run_id+1)*bsize)]
+blocks = {a for aa in block_order for a in aa}
+sigs = {bb for i, b in enumerate(sig_blocks) if i in blocks for bb in b}
+
+print("copying sigs to temp-folder")
+for s in sigs:
+    shutil.copy(s, os.environ['SNIC_TMP'] + "/")
+
+sig_blocks = [[bb.replace("sigs", os.environ['SNIC_TMP']) for bb in b]for b in sig_blocks]
 
 def run_bloc(i):
     if os.path.exists("blocks/block_{}.csv".format(i)):
