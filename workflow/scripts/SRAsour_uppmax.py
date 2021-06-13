@@ -8,8 +8,11 @@ from sourmash.signature import SourmashSignature
 from sourmash.signature import load_signatures
 from multiprocessing import Pool
 import sys
+import shutil
 
 run_id = int(os.environ['run_id'])
+
+print("running blockset", str(run_id), flush=True)
 
 def load_sig(f):
     with open(f) as handle:
@@ -36,12 +39,12 @@ sig_blocks = [all_sigs[i:(i+block_size)] for i in list(range(0,len(all_sigs), bl
 block_order = [(i,j) for i,b in enumerate(sig_blocks) for j,v in enumerate(sig_blocks)]
 
 bsize = int(len(block_order)/100)
-print("Doing block {} to {} out of {}".format(run_id*bsize, ((run_id+1)*bsize), len(block_order)))
+print("Doing block {} to {} out of {}".format(run_id*bsize, ((run_id+1)*bsize), len(block_order)), flush=True)
 block_order = block_order[run_id*bsize:((run_id+1)*bsize)]
 blocks = {a for aa in block_order for a in aa}
 sigs = {bb for i, b in enumerate(sig_blocks) if i in blocks for bb in b}
 
-print("copying sigs to temp-folder")
+print("copying sigs to temp-folder", flush=True)
 for s in sigs:
     shutil.copy(s, os.environ['SNIC_TMP'] + "/")
 
@@ -54,7 +57,7 @@ def run_bloc(i):
     sub_sigs_2 = {v.split("/")[-1][:-4] : load_sig(v) for v in sig_blocks[block_order[i][1]]}
     dists = {(k,l) : v.similarity(w, ignore_abundance=True) for k,v in sub_sigs_1.items() for l,w in sub_sigs_2.items()}
     dists = {k : v for k,v in dists.items() if v >0.05 and  k[0] != k[1]}
-    print("Done bloc:", i)
+    print("Done bloc:", i, flush=True)
     with open("blocks/block_{}_{}.csv".format(run_id,i), "w") as handle:
         handle.writelines(["{}\t{}\t{}\n".format(k[0],k[1],v) for k,v in dists.items()] )
     return True
