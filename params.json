@@ -1,8 +1,13 @@
 {
-  "scratch" : "/tmp/",
+  "scratch" : "/home/moritz/temp/",
+  "coass_file" :  "/home/moritz/data/SRAprov/data/db/coassemblies.tsv",
   "ass_len_cutoff" : 2500,
+  "coass_len_cutoff" : 2500,
   "max_redundance" : 3,
   "min_completeness" : 30,
+  "coas_min_bin_size" : 800000,
+  "coass_max_redundance" : 3,
+  "coass_min_completeness" : 30,
   "rarefaction_read_collection" : 100000,
   "retries" : 10
 }

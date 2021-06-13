@@ -62,8 +62,8 @@ def fetch_sample_data(sample_id):
 
 script , organism, username  = sys.argv
 
-all_orgs = ["peat metagenome","seawater metagenome","marine metagenome","marine plankton metagenome","marine sediment metagenome","karst metagenome","lagoon metagenome","lake water metagenome","glacier lake metagenome","freshwater metagenome","freshwater sediment metagenome","aquatic metagenome","bog metagenome","drinking water metagenome","estuary metagenome","Winogradsky column metagenome", 'alkali sediment metagenome', 'sediment metagenome']
-"water metagenome"
+all_orgs = ["water metagenome","peat metagenome","seawater metagenome","marine metagenome","marine plankton metagenome","marine sediment metagenome","karst metagenome","lagoon metagenome","lake water metagenome","glacier lake metagenome","freshwater metagenome","freshwater sediment metagenome","aquatic metagenome","bog metagenome","drinking water metagenome","estuary metagenome","Winogradsky column metagenome", 'alkali sediment metagenome', 'sediment metagenome']
+
 
 Entrez.email = username
 
@@ -79,3 +79,8 @@ for id in tqdm(sra_ids):
 
 with open("/home/moritz/kadath/data/SRAprov/data/dbs/sra_data.json", "w") as handle:
     json.dump(sras_metadat, handle, indent=4, sort_keys=True)
+
+for v in sras_metadat.values():
+    v.update(v['sample_attributes'])
+    del v['sample_attributes']
+pandas.DataFrame.from_dict(sras_metadat, orient = "index").to_csv("/home/moritz/data/SRAprov/data/dbs/sra_data.csv")

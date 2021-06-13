@@ -1,17 +1,25 @@
-include : "rules/SRAsingle.smk"
+include : "rules/SRAnsack_single.smk"
+include : "rules/SRAnsack_coass.smk"
 
 from os.path import join as pjoin
 import json
 import os
+from tqdm import tqdm
 
 root = "/home/moritz/data/SRAprov/"
 data = pjoin(root, "data")
 
+with open("params.json") as handle:
+    params = json.load(handle)
+
+coass_file = params['coass_file']
+
+# single assembly handling
+
 with open(pjoin(data, "dbs", "sra_data.json")) as handle:
     sra_md = json.load(handle)
 
-
-black_list = {'SRR2657549', 'SRR12682498', 'SRR12681850', 'SRR9617869', 'SRR10168434', 'SRR9616616', 'SRR9616645', 'SRR9616610', 'SRR9617900', 'SRR9617649' , 'SRR9617649', 'SRR9023608','SRR9617900', 'SRR12681864', 'SRR10072857', 'SRR9616645', 'SRR9023608', 'SRR2657558','SRR2657229', 'SRR6787039', 'ERR1726684'}
+black_list = {}#{'SRR2657549', 'SRR12682498', 'SRR12681850', 'SRR9617869', 'SRR10168434', 'SRR9616616', 'SRR9616645', 'SRR9616610', 'SRR9617900', 'SRR9617649' , 'SRR9617649', 'SRR9023608','SRR9617900', 'SRR12681864', 'SRR10072857', 'SRR9616645', 'SRR9023608', 'SRR2657558','SRR2657229', 'SRR6787039', 'ERR1726684'}
 
 logs = [log for log in os.listdir() if log.endswith(".out") and log.startswith("slurm-")]
 
@@ -41,7 +49,14 @@ runnings = set([l['SRA_ID'] for l in logs if l['running']])
 
 sras_to_do = [v['SRA_ID'] for v in sra_md.values() if v['SRA_ID'] not in black_list]
 
-print("#We have ", len(sras_to_do))
+# coassemblies handling
+
+
+print("#We have ", len(sras_to_do), "single assemblies")
+#print("#We have ", len(coasses), " coassemblies")
 
 rule all :
     input : [pjoin(data, "libraries", g , g + ".sig.gz") for g in sras_to_do]
+
+#rule all_coasses:
+#    input : [pjoin(data, "coassemblies", k , k + ".fna.gz") for k in coasses]

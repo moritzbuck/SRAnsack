@@ -55,7 +55,7 @@ def run_bloc(i):
     dists = {(k,l) : v.similarity(w, ignore_abundance=True) for k,v in sub_sigs_1.items() for l,w in sub_sigs_2.items()}
     dists = {k : v for k,v in dists.items() if v >0.05 and  k[0] != k[1]}
     print("Done bloc:", i)
-    with open("blocks/block_{}.csv".format(i), "w") as handle:
+    with open("blocks/block_{}_{}.csv".format(run_id,i), "w") as handle:
         handle.writelines(["{}\t{}\t{}\n".format(k[0],k[1],v) for k,v in dists.items()] )
     return True
 
