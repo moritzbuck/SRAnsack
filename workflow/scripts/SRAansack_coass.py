@@ -15,7 +15,7 @@ def title2log(title, llen = 90) :
     prefix = "="*floor((llen-2-len(text_insert))/2) + " "
     sufffix = " " + "="*ceil((llen-2-len(text_insert))/2)
     text = prefix + text_insert + sufffix
-    with open(pjoin(temp_folder, SRA_ID + ".log"), "a") as handle:
+    with open(pjoin(temp_folder, coass_id + ".log"), "a") as handle:
         handle.writelines("\n\n" + text + "\n\n")
     print(text, file = stderr, flush = True)
 
@@ -24,122 +24,148 @@ def into_line(text, llen = 90) :
     prefix = "="*floor((llen-2-len(text_insert))/2) + " "
     sufffix = " " + "="*ceil((llen-2-len(text_insert))/2)
     text = prefix + text_insert + sufffix
-    with open(pjoin(temp_folder, SRA_ID + ".log"), "a") as handle:
+    with open(pjoin(temp_folder, coass_id + ".log"), "a") as handle:
         handle.writelines("\n\n" + text + "\n\n")
     print(text, file = stderr, flush = True)
 
 
 script , coass_id, params, final_location, threads = sys.argv
 
-with open("params.json") as handle:
+with open(params) as handle:
     params = json.load(handle)
 
 len_cutoff = int(params['coass_len_cutoff'])
 max_redundance = float(params['coass_max_redundance'])
 min_completeness = float(params['coass_min_completeness'])
-min_size = float(params['min_size'])
+min_size = float(params['coass_min_bin_size'])
 retries = int(params['retries'])
+buffer_folder =  params['buffer']
 with open(params['coass_file']) as handle:
-    coass = {l.split()[0] : l.strip().split()[1].split(";") for l in handle}[coass_id]
+    coass_dat = json.load(handle)[coass_id]
+
+coass = coass_dat['samples']
 
 scratch = os.environ.get('SNIC_TMP', os.environ.get('SCRATCH_DIR', params['scratch']))
 temp_folder = pjoin(scratch, coass_id)
+os.makedirs(temp_folder, exist_ok = True)
 
 attribs = { 'temp_folder' : temp_folder,
             'coass_id'    : coass_id,
-            'threads'     : threads
+            'threads'     : threads,
+            'len_cutoff' : len_cutoff,
+            '' :
 }
 
-dl_lib = "parallel-fastq-dump --tmpdir {temp_folder}  --threads {threads} -s {sraid} --split-e --skip-technical --outdir {connected_components_possible_params}  >> {temp}/{coass_id}.log  2>&1"
+dl_lib = "parallel-fastq-dump --tmpdir {temp_folder}  --threads {threads} -s {sraid} --split-e --skip-technical --outdir {temp_folder}  >> {temp_folder}/{coass_id}.log  2>&1"
 
 single_lib_prep = """
-fastp -h /dev/null -j /dev/null  {fastp_inlibs} {fastp_outlibs} -w {threads}  >> {temp}/{sraid}.log 2>&1
-rm {lib1} {lib2}
-bbnorm.sh {in_reads} {out_reads} t={threads}  2>> {temp}/{sraid}.log
-rm {qc_libs}
+fastp -h /dev/null -j /dev/null  {fastp_inlibs} {fastp_outlibs} -w {threads}  >> {temp_folder}/{coass_id}.log 2>&1
+rm {raw_libs}
+pigz {qc_libs}
+
+bbnorm.sh {norm_libs_in} {norm_libs_out} t={threads} pigz=t  2>> {temp_folder}/{coass_id}.log
+cat {temp_folder}/normed_{lib}{paired}.fastq.gz >> {temp_folder}/{coass_id}{paired}.fastq.gz
+rm {temp_folder}/normed_{lib}{paired}.fastq.gz
+if [ -f {temp_folder}/normed_{lib}_2.fastq.gz ]
+then
+    cat {temp_folder}/normed_{lib}_2.fastq.gz >> {temp_folder}/{coass_id}_2.fastq.gz
+    touch {temp_folder}/normed_{lib}.fastq.gz
+    rm {temp_folder}/normed_{lib}_2.fastq.gz
+fi
 """
 
-for lib in coass:
+title2log("Starting to get grab and process libs")
+for i,lib in enumerate(coass):
+    title2log("Processing {}/{}: {}".format((i+1),len(coass), lib))
     call(dl_lib.format(sraid = lib, **attribs), shell = True)
 
     read_libs = [pjoin(temp_folder,i) for i in os.listdir(temp_folder) if i.split("/")[-1].startswith(lib) and i.endswith(".fastq")]
     paired = True if len(read_libs)  > 1 else False
 
-    inlibs = "{flag}{fwd} " + ("{flag}{rev}" if paired else "")
+    inlibs = "{flag1}{fwd} " + ("{flag2}{rev}" if paired else "")
 
-    single_lib_prep.format()
+    single_lib_dat = {
+    'fastp_inlibs' : inlibs.format(flag1 = "--in1 ", flag2 = "--in2 ", fwd = pjoin(temp_folder,lib + "_1.fastq"), rev = pjoin(temp_folder,lib + "_2.fastq")),
+    'fastp_outlibs' : inlibs.format(flag1 = "--out1 ", flag2 = "--out2 ", fwd = pjoin(temp_folder,"QCed_" + lib + "_1.fastq"), rev = pjoin(temp_folder,"QCed_" + lib + "_2.fastq")),
+    'buffer' :buffer_folder,
+    'qc_libs' : inlibs.format(flag1 = "", flag2 = "", fwd = pjoin(temp_folder,"QCed_" + lib + "_1.fastq"), rev = pjoin(temp_folder,"QCed_" + lib + "_2.fastq")),
+    'raw_libs' : inlibs.format(flag1 = "", flag2 = "", fwd = pjoin(temp_folder,lib + "_1.fastq"), rev = pjoin(temp_folder,lib + "_2.fastq")),
+    'qc_libs_gz' : inlibs.format(flag1 = "", flag2 = "", fwd = pjoin(temp_folder,"QCed_" + lib + "_1.fastq.gz"), rev = pjoin(temp_folder,"QCed_" + lib + "_2.fastq.gz")),
+    'norm_libs_in' : inlibs.format(flag1 = "in=", flag2 = "in2=", fwd = pjoin(temp_folder,"QCed_" + lib + "_1.fastq.gz"), rev = pjoin(temp_folder,"QCed_" + lib + "_2.fastq.gz")),
+    'norm_libs_out' : inlibs.format(flag1 = "out=", flag2 = "out2=", fwd = pjoin(temp_folder,"normed_" + lib + "_1.fastq.gz"), rev = pjoin(temp_folder,"normed_" + lib + "_2.fastq.gz")),
+    'paired' : "_1" if paired else "",
+    'lib' : lib
+    }
+    call(single_lib_prep.format(**single_lib_dat, **attribs), shell = True)
 
+title2log("All libraries pre-processed")
 
+#computing compression rate
+gziped_qced_size = sum([os.path.getsize(pjoin(temp_folder,f)) for f in os.listdir(temp_folder) if f.startswith("QCed_")])
+gziped_normed_size = sum([os.path.getsize(pjoin(temp_folder,f)) for f in os.listdir(temp_folder) if f.startswith(coass_id) and f.endswith(".fastq.gz")])
 
-reads2 = "-in1=" + clean_libs[0] + ((" -in2=" + clean_libs[1]) if paired else "")
-sub_libs = reads2.replace(".clean", ".subclean").replace("-in", "-out")
+megahit_line = """
+megahit -1 {temp_folder}/{coass_id}_1.fastq.gz -2 {temp_folder}/{coass_id}_2.fastq.gz -r {temp_folder}/{coass_id}.fastq.gz -t {threads} -o {temp_folder}/assembly --min-contig-len {len_cutoff} 2>> {temp_folder}/{coass_id}.log
+rm {temp_folder}/{coass_id}_1.fastq.gz {temp_folder}/{coass_id}_2.fastq.gz {temp_folder}/{coass_id}.fastq.gz
+"""
 
+title2log("Assembling the s*** out of it")
+call(megahit_line.format(**attribs), shell = True)
 
-temp_folder = pjoin(temp_folder, SRA_ID)
-os.makedirs(temp_folder, exist_ok=True)
-
-title2log("Starting coassembly " + coass_id)
-
-title2log("Downloading reads from SRA")
-
-i=0
-while len([i for i in os.listdir(temp_folder) if i.split("/")[-1].startswith(SRA_ID) and i.endswith(".fastq")]) == 0 and i < retries:
-    into_line("Try : " + str(i+1))
-    call(sratools_line.format(sraid = SRA_ID, temp = temp_folder, threads = threads), shell = True)
-    i += 1
-
-read_libs = [pjoin(temp_folder,i) for i in os.listdir(temp_folder) if i.split("/")[-1].startswith(SRA_ID) and i.endswith(".fastq")]
-paired = True if len(read_libs)  > 1 else False
-
-if paired :
-    read_libs = sorted([l for l in read_libs if "_1.fastq" in l or "_2.fastq" in l])
-
-fastp_line = "f"
-clean_libs = [l.replace(".fastq", ".clean.fastq") for l in read_libs]
-
-title2log("QCing reads")
-call(fastp_line.format(lib1 = read_libs[0], out1 = clean_libs[0],
-     pot_lib2 = "--in2 " + read_libs[1] if paired else "",
-     pot_out2 = "--out2 " + clean_libs[1] if paired else "",
-     threads = threads, sraid = SRA_ID, temp=temp_folder
-), shell = True)
-
-reads = ("-1 " + clean_libs[0] + " -2 " + clean_libs[1]) if paired else "-r " + clean_libs[0]
-megahit_line = "megahit {reads} -t {threads} -o {temp}/assembly --min-contig-len {min_len} 2>> {temp}/{sraid}.log"
-
-title2log("Assembling")
-call(megahit_line.format(reads = reads, threads = threads, sraid = SRA_ID, temp = temp_folder, min_len = len_cutoff), shell = True)
-
-# optimize mem usage of this
-seqs = [s for s in SeqIO.parse(pjoin(temp_folder, "assembly", "final.contigs.fa"), "fasta") if len(s) > len_cutoff]
-
-zeros = len(str(len(seqs)))
-
-for i,s in enumerate(seqs):
-    s.id = SRA_ID + "_" + str(i).zfill(zeros)
-    s.description = ""
-
-SeqIO.write(seqs, pjoin(temp_folder, "assembly.fna"), "fasta")
-# to here
+title2log("Making bowtie2 index")
+call("bowtie2-build --threads {threads} {temp_folder}/assembly/final.contigs.fa {temp_folder}/index  >> {temp_folder}/{coass_id}.log 2>&1".format(**attribs), shell=True)
 
 bowtie_lines = """
-bowtie2-build --threads {threads} {temp}/assembly.fna {temp}/index  >> {temp}/{sraid}.log 2>&1
-bowtie2 -p24 -x {temp}/index {reads} -S {temp}/mapping.sam 2>> {temp}/{sraid}.log
-samtools view -b -S -@24  {temp}/mapping.sam >  {temp}/mapping.bam 2>> {temp}/{sraid}.log
-samtools sort -@ 24 -o {temp}/mapping.sorted.bam {temp}/mapping.bam 2>> {temp}/{sraid}.log
+bowtie2 -p{threads} -x {temp_folder}/index {reads} -S {temp_folder}/mapping.sam 2>> {temp_folder}/{coass_id}.log
+samtools view -b -S -@{threads}  {temp_folder}/mapping.sam >  {temp_folder}/mapping.bam 2>> {temp_folder}/{coass_id}.log
+samtools sort -@ 24 -o {temp_folder}/mapping.sorted.bam {temp_folder}/mapping.bam 2>> {temp_folder}/{coass_id}.log
+jgi_summarize_bam_contig_depths --outputDepth {temp_folder}/mapping.tsv --referenceFasta {temp_folder}/assembly.fna  {temp_folder}/mapping.sorted.bam >> {temp_folder}/{coass_id}.log 2>&1
 """
+
+title2log("Starting mapping libs to ass")
+contig_lens = {}
+coverages = {}
+var = {}
+
+for i,lib in enumerate(coass):
+    title2log("Mapping {}/{}: {}".format((i+1),len(coass), lib))
+
+    read_libs = [pjoin(temp_folder,i) for i in os.listdir(temp_folder) if i.endswith(".fastq.gz") and i.startswith("QCed_" + lib)]
+    paired = True if len(read_libs)  > 1 else False
+
+    if paired:
+        inlibs = "-1 {temp_folder}/QCed_{lib}_1.fastq.gz -2 {temp_folder}/QCed_{lib}_2.fastq.gz".format(temp_folder = temp_folder, lib = lib)
+    else :
+        inlibs = "-1 {temp_folder}/QCed_{lib}.fastq.gz".format(temp_folder = temp_folder, lib = lib)
+
+    single_lib_dat = {
+    'lib' : lib,
+    'reads' : inlibs
+    }
+    call(bowtie_lines.format(**single_lib_dat, **attribs), shell = True)
+
+    with open(pjoin(temp_folder, "mapping.tsv")) as handle:
+        handle.readline()
+        coverages[lib] = {}
+        var[lib] = {}
+        for l in handle:
+            ll = l.strip().split()
+            if ll[0] not in contig_lens:
+                contig_lens[ll[0]] = int(ll[1])
+            coverages[lib][ll[0]] = float(ll[3])
+            var[lib][ll[0]] = float(ll[3])
+
 
 title2log("Mapping")
 call(bowtie_lines.format(threads = threads, temp=temp_folder, sraid = SRA_ID, reads = reads), shell = True)
 
 binning_line = """
-jgi_summarize_bam_contig_depths --outputDepth {temp}/mapping.tsv --referenceFasta {temp}/assembly.fna  {temp}/mapping.sorted.bam >> {temp}/{sraid}.log 2>&1
-metabat2 -i {temp}/assembly.fna -o {temp}/bins/{sraid} -a {temp}/mapping.tsv -s 500000 -t {threads}   >> {temp}/{sraid}.log 2>&1
-checkm taxonomy_wf life Prokaryote -x fa -t 24 {temp}/bins/ {temp}/checkm > {temp}/checkm.txt  2>> {temp}/{sraid}.log
+metabat2 -i {temp_folder}/assembly/final.contigs.fna -o {temp_folder}/bins/{coass_id} -a {temp_folder}/mapping.tsv -s {min_size} -t {threads}   >> {temp_folder}/{coass_id}.log 2>&1
+checkm taxonomy_wf life Prokaryote -x fa -t {threads} {temp_folder}/bins/ {temp_folder}/checkm > {temp_folder}/checkm.txt  2>> {temp_folder}/{coass_id}.log
 """
 
 title2log("Binning")
-call(binning_line.format(threads = threads, temp=temp_folder, sraid = SRA_ID), shell = True)
+call(binning_line.format(**attribs), shell = True)
 
 with open(pjoin(temp_folder, "checkm.txt")) as handle:
     all_lines = [l.strip() for l in  handle.readlines() if " INFO:" not in l]

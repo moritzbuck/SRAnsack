@@ -77,7 +77,7 @@ for id in tqdm(sra_ids):
     if id not in sras_metadat:
         sras_metadat[id] = parse_exp_summary(id)
 
-with open("/home/moritz/kadath/data/SRAprov/data/dbs/sra_data.json", "w") as handle:
+with open("/home/moritz/data/SRAprov/data/dbs/sra_data.json", "w") as handle:
     json.dump(sras_metadat, handle, indent=4, sort_keys=True)
 
 for v in sras_metadat.values():

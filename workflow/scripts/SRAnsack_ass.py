@@ -88,9 +88,9 @@ SeqIO.write(seqs, pjoin(temp_folder, "assembly.fna"), "fasta")
 
 bowtie_lines = """
 bowtie2-build --threads {threads} {temp}/assembly.fna {temp}/index  >> {temp}/{sraid}.log 2>&1
-bowtie2 -p24 -x {temp}/index {reads} -S {temp}/mapping.sam 2>> {temp}/{sraid}.log
-samtools view -b -S -@24  {temp}/mapping.sam >  {temp}/mapping.bam 2>> {temp}/{sraid}.log
-samtools sort -@ 24 -o {temp}/mapping.sorted.bam {temp}/mapping.bam 2>> {temp}/{sraid}.log
+bowtie2 -p{threads} -x {temp}/index {reads} -S {temp}/mapping.sam 2>> {temp}/{sraid}.log
+samtools view -b -S -@{threads}  {temp}/mapping.sam >  {temp}/mapping.bam 2>> {temp}/{sraid}.log
+samtools sort -@{threads} -o {temp}/mapping.sorted.bam {temp}/mapping.bam 2>> {temp}/{sraid}.log
 """
 
 title2log("Mapping")
@@ -99,7 +99,7 @@ call(bowtie_lines.format(threads = threads, temp=temp_folder, sraid = SRA_ID, re
 binning_line = """
 jgi_summarize_bam_contig_depths --outputDepth {temp}/mapping.tsv --referenceFasta {temp}/assembly.fna  {temp}/mapping.sorted.bam >> {temp}/{sraid}.log 2>&1
 metabat2 -i {temp}/assembly.fna -o {temp}/bins/{sraid} -a {temp}/mapping.tsv -s 500000 -t {threads}   >> {temp}/{sraid}.log 2>&1
-checkm taxonomy_wf life Prokaryote -x fa -t 24 {temp}/bins/ {temp}/checkm > {temp}/checkm.txt  2>> {temp}/{sraid}.log
+checkm taxonomy_wf life Prokaryote -x fa -t {threads} {temp}/bins/ {temp}/checkm > {temp}/checkm.txt  2>> {temp}/{sraid}.log
 """
 
 title2log("Binning")
