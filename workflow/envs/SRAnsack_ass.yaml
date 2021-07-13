@@ -16,6 +16,7 @@ dependencies:
   - hmmer
   - khmer
   - sourmash
+  - pandas
   - bbmap
   - parallel-fastq-dump
   - metabat2

@@ -86,7 +86,7 @@ def get_sub_tree_mean_simi(node):
             sub_tree_simis[node.id] = None
     return sub_tree_simis[node.id]
 
-def split_tree(node, cutoff = 100):
+def split_tree(node, cutoff = 500):
     if node.is_leaf():
         return [node]
     left = node.get_left()

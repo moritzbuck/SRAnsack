@@ -15,7 +15,7 @@ def title2log(title, llen = 90) :
     prefix = "="*floor((llen-2-len(text_insert))/2) + " "
     sufffix = " " + "="*ceil((llen-2-len(text_insert))/2)
     text = prefix + text_insert + sufffix
-    with open(pjoin(temp_folder, SRA_ID + ".log"), "a") as handle:
+    with open(log_file, "a") as handle:
         handle.writelines("\n\n" + text + "\n\n")
     print(text, file = stderr, flush = True)
 
@@ -24,20 +24,21 @@ def into_line(text, llen = 90) :
     prefix = "="*floor((llen-2-len(text_insert))/2) + " "
     sufffix = " " + "="*ceil((llen-2-len(text_insert))/2)
     text = prefix + text_insert + sufffix
-    with open(pjoin(temp_folder, SRA_ID + ".log"), "a") as handle:
+    with open(log_file, "a") as handle:
         handle.writelines("\n\n" + text + "\n\n")
     print(text, file = stderr, flush = True)
 
 
 script , SRA_ID, temp_folder, final_location, threads, len_cutoff, max_redundance, min_completeness , rarefaction, retries = sys.argv
 
+log_file = pjoin(final_location, "data","libraries", SRA_ID, SRA_ID + ".log")
 
 len_cutoff = int(len_cutoff)
 max_redundance = float(max_redundance)
 min_completeness = float(min_completeness)
 retries = int(retries)
 
-sratools_line = "parallel-fastq-dump --tmpdir {temp}  --threads {threads} -s {sraid} --split-e --skip-technical --outdir {temp}  >> {temp}/{sraid}.log  2>&1"
+sratools_line = "parallel-fastq-dump --tmpdir {temp}  --threads {threads} -s {sraid} --split-e --skip-technical --outdir {temp}  >> {log_file}  2>&1"
 
 temp_folder = pjoin(temp_folder, SRA_ID)
 os.makedirs(temp_folder, exist_ok=True)
@@ -58,7 +59,7 @@ paired = True if len(read_libs)  > 1 else False
 if paired :
     read_libs = sorted([l for l in read_libs if "_1.fastq" in l or "_2.fastq" in l])
 
-fastp_line = "fastp -h /dev/null -j {temp}/{sraid}.fastp.json  --in1 {lib1} {pot_lib2} --out1 {out1} {pot_out2} -w {threads}  >> {temp}/{sraid}.log 2>&1"
+fastp_line = "fastp -h /dev/null -j {temp}/{sraid}.fastp.json  --in1 {lib1} {pot_lib2} --out1 {out1} {pot_out2} -w {threads}  >> {log_file} 2>&1"
 clean_libs = [l.replace(".fastq", ".clean.fastq") for l in read_libs]
 
 title2log("QCing reads")
@@ -69,13 +70,20 @@ call(fastp_line.format(lib1 = read_libs[0], out1 = clean_libs[0],
 ), shell = True)
 
 reads = ("-1 " + clean_libs[0] + " -2 " + clean_libs[1]) if paired else "-r " + clean_libs[0]
-megahit_line = "megahit {reads} -t {threads} -o {temp}/assembly --min-contig-len {min_len} 2>> {temp}/{sraid}.log"
+megahit_line = "megahit {reads} -t {threads} -o {temp}/assembly --min-contig-len {min_len} 2>> {log_file}"
 
 title2log("Assembling")
-call(megahit_line.format(reads = reads, threads = threads, sraid = SRA_ID, temp = temp_folder, min_len = len_cutoff), shell = True)
 
-# optimize mem usage of this
-seqs = [s for s in SeqIO.parse(pjoin(temp_folder, "assembly", "final.contigs.fa"), "fasta") if len(s) > len_cutoff]
+try :
+    call(megahit_line.format(reads = reads, threads = threads, sraid = SRA_ID, temp = temp_folder, min_len = len_cutoff), shell = True)
+    # optimize mem usage of this
+    seqs = [s for s in SeqIO.parse(pjoin(temp_folder, "assembly", "final.contigs.fa"), "fasta") if len(s) > len_cutoff]
+except :
+    megahit_line = "megahit --force --presets meta-large {reads} -t {threads} -o {temp}/assembly --min-contig-len {min_len} 2>> {log_file}"
+    call(megahit_line.format(reads = reads, threads = threads, sraid = SRA_ID, temp = temp_folder, min_len = len_cutoff), shell = True)
+    # optimize mem usage of this
+    seqs = [s for s in SeqIO.parse(pjoin(temp_folder, "assembly", "final.contigs.fa"), "fasta") if len(s) > len_cutoff]
+
 
 zeros = len(str(len(seqs)))
 
@@ -87,19 +95,19 @@ SeqIO.write(seqs, pjoin(temp_folder, "assembly.fna"), "fasta")
 # to here
 
 bowtie_lines = """
-bowtie2-build --threads {threads} {temp}/assembly.fna {temp}/index  >> {temp}/{sraid}.log 2>&1
-bowtie2 -p{threads} -x {temp}/index {reads} -S {temp}/mapping.sam 2>> {temp}/{sraid}.log
-samtools view -b -S -@{threads}  {temp}/mapping.sam >  {temp}/mapping.bam 2>> {temp}/{sraid}.log
-samtools sort -@{threads} -o {temp}/mapping.sorted.bam {temp}/mapping.bam 2>> {temp}/{sraid}.log
+bowtie2-build --threads {threads} {temp}/assembly.fna {temp}/index  >> {log_file} 2>&1
+bowtie2 -p{threads} -x {temp}/index {reads} -S {temp}/mapping.sam 2>> {log_file}
+samtools view -b -S -@{threads}  {temp}/mapping.sam >  {temp}/mapping.bam 2>> {log_file}
+samtools sort -@{threads} -o {temp}/mapping.sorted.bam {temp}/mapping.bam 2>> {log_file}
 """
 
 title2log("Mapping")
 call(bowtie_lines.format(threads = threads, temp=temp_folder, sraid = SRA_ID, reads = reads), shell = True)
 
 binning_line = """
-jgi_summarize_bam_contig_depths --outputDepth {temp}/mapping.tsv --referenceFasta {temp}/assembly.fna  {temp}/mapping.sorted.bam >> {temp}/{sraid}.log 2>&1
-metabat2 -i {temp}/assembly.fna -o {temp}/bins/{sraid} -a {temp}/mapping.tsv -s 500000 -t {threads}   >> {temp}/{sraid}.log 2>&1
-checkm taxonomy_wf life Prokaryote -x fa -t {threads} {temp}/bins/ {temp}/checkm > {temp}/checkm.txt  2>> {temp}/{sraid}.log
+jgi_summarize_bam_contig_depths --outputDepth {temp}/mapping.tsv --referenceFasta {temp}/assembly.fna  {temp}/mapping.sorted.bam >> {log_file} 2>&1
+metabat2 -i {temp}/assembly.fna -o {temp}/bins/{sraid} -a {temp}/mapping.tsv -s 500000 -t {threads}   >> {log_file} 2>&1
+checkm taxonomy_wf life Prokaryote -x fa -t {threads} {temp}/bins/ {temp}/checkm > {temp}/checkm.txt  2>> {log_file}
 """
 
 title2log("Binning")
@@ -129,8 +137,8 @@ with open(pjoin(temp_folder, SRA_ID + ".bins.json"), "w") as handle:
     json.dump(chekm_out, handle, indent=4, sort_keys=True)
 
 read_proc_line = """
-reformat.sh {in_reads} {out_reads} samplereadstarget={subcount} sampleseed=42 t={threads}  2>> {temp}/{sraid}.log
-sourmash compute --track-abundance --merge {sraid} -k31 --scaled 1000 {reads} -o {temp}/{sraid}.sig -p{threads}  2>> {temp}/{sraid}.log
+reformat.sh {in_reads} {out_reads} samplereadstarget={subcount} sampleseed=42 t={threads}  2>> {log_file}
+sourmash compute --track-abundance --merge {sraid} -k31 --scaled 1000 {reads} -o {temp}/{sraid}.sig -p{threads}  2>> {log_file}
 """
 
 title2log("Read subsetting and sketching")

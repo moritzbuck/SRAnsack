@@ -51,66 +51,66 @@ sras_to_do = [v['SRA_ID'] for v in sra_md.values() if v['SRA_ID'] not in black_l
 
 # coassemblies handling
 
-if os.path.exists(pjoin(root, "data/dbs/all_similarities.tsv")) and not os.path.exists(coass_file):
-    with open(pjoin(root, "data/dbs/all_similarities.tsv")) as handle:
-        simis = list(handle.readlines())
-        simis = { ( l.split()[0], l.split()[1] ) : float(l.split()[2][:-1]) for l in tqdm(simis)}
-    all_samples = {a for k in simis.keys() for a in k}
-
-    #fixing a few missing simetric simis
-    for k in tqdm(list(simis)):
-        if simis.get((k[1], k[0])) != simis[k] :
-            simis[(k[1], k[0])] = simis[k]
-
-    with open("data/dbs/sra2rrnafreq.tsv") as handle:
-        sra2rrna = { l.split()[0] : float(l.strip().split()[1]) for l in handle }
-
-    too_much_rrna = {k for k,v in sra2rrna.items() if v > 5}
-
-    def make_components(cutoff):
-        good_pairs = [k for k,v in simis.items() if v > cutoff and k[0] not in too_much_rrna and k[1] not in too_much_rrna]
-        vertexDeict = { v : i for i,v in enumerate(set([x for k in good_pairs for x in k]))}
-        rev_vertexDeict = { v : i for i,v in vertexDeict.items()}
-        species_graph = igraph.Graph()
-        species_graph.add_vertices(len(vertexDeict))
-        species_graph.add_edges([(vertexDeict[k[0]], vertexDeict[k[1]]) for k in good_pairs])
-
-        sample_clusters = [[rev_vertexDeict[cc] for cc in c ] for c in species_graph.components(mode=igraph.STRONG)]
-        pair2cluster = {(cc,bb) : i for i,c in tqdm(enumerate(sample_clusters))  for cc in c for bb in c}
-        total_simi = 0
-        for p, c in tqdm(pair2cluster.items()):
-            if p in simis:
-                total_simi += simis[p]
-        return {'clusters' : sample_clusters, 'total_simi' :  total_simi}
-
-    if(False) :
-
-        test = {i/20 : make_components(i/20) for i in range(20)}
-        test.update({0.06+ (0.15*(i/15)) : make_components(0.06+ (0.15*(i/15))) for i in range(15)})
-
-        # exploring clustering paramater
-        for k,v in test.items():
-            v['nb_clusters'] = len(v['clusters'])
-            v['mean_sample'] = mean([len(c) for c in  v['clusters']])
-            v['median_sample'] = median([len(c) for c in  v['clusters']])
-            v['max_sample'] = max([len(c) for c in  v['clusters']])
-            v['nb_samples'] = sum([len(c) for c in  v['clusters']])
-            v['nb_samples_over_4'] = sum([len(c) for c in  v['clusters'] if len(c) > 4])
-            v['nb_clusters_over_4'] = sum([len(c) > 4 for c in  v['clusters']])
-            del v['clusters']
-        pandas.DataFrame.from_dict(test, orient="index").to_csv("data/dbs/connected_components_possible_params.csv", index_label="simi_cutoff")
-        # I picked 0.12
-
-    coass_clusters = make_components(0.12)
-    coass_clusters = [c for c in coass_clusters['clusters'] if len(c) > 4]
-    coass_clusters = { "coass_{}".format(i) : c for i,c in enumerate(coass_clusters)}
-    with open(pjoin(root, "data/dbs/coassemblies.tsv"), "w") as handle:
-        handle.writelines(["{}\t{}\n".format(c, ";".join(v)) for c, v in coass_clusters.items()])
-elif os.path.exists(coass_file):
-    with open(coass_file) as handle:
-        coasses = {l.split()[0] : l.strip().split()[1].split(";") for l in handle}
+# if os.path.exists(pjoin(root, "data/dbs/all_similarities.tsv")) and not os.path.exists(coass_file):
+#     with open(pjoin(root, "data/dbs/all_similarities.tsv")) as handle:
+#         simis = list(handle.readlines())
+#         simis = { ( l.split()[0], l.split()[1] ) : float(l.split()[2][:-1]) for l in tqdm(simis)}
+#     all_samples = {a for k in simis.keys() for a in k}
+#
+#     #fixing a few missing simetric simis
+#     for k in tqdm(list(simis)):
+#         if simis.get((k[1], k[0])) != simis[k] :
+#             simis[(k[1], k[0])] = simis[k]
+#
+#     with open("data/dbs/sra2rrnafreq.tsv") as handle:
+#         sra2rrna = { l.split()[0] : float(l.strip().split()[1]) for l in handle }
+#
+#     too_much_rrna = {k for k,v in sra2rrna.items() if v > 5}
+#
+#     def make_components(cutoff):
+#         good_pairs = [k for k,v in simis.items() if v > cutoff and k[0] not in too_much_rrna and k[1] not in too_much_rrna]
+#         vertexDeict = { v : i for i,v in enumerate(set([x for k in good_pairs for x in k]))}
+#         rev_vertexDeict = { v : i for i,v in vertexDeict.items()}
+#         species_graph = igraph.Graph()
+#         species_graph.add_vertices(len(vertexDeict))
+#         species_graph.add_edges([(vertexDeict[k[0]], vertexDeict[k[1]]) for k in good_pairs])
+#
+#         sample_clusters = [[rev_vertexDeict[cc] for cc in c ] for c in species_graph.components(mode=igraph.STRONG)]
+#         pair2cluster = {(cc,bb) : i for i,c in tqdm(enumerate(sample_clusters))  for cc in c for bb in c}
+#         total_simi = 0
+#         for p, c in tqdm(pair2cluster.items()):
+#             if p in simis:
+#                 total_simi += simis[p]
+#         return {'clusters' : sample_clusters, 'total_simi' :  total_simi}
+#
+#     if(False) :
+#
+#         test = {i/20 : make_components(i/20) for i in range(20)}
+#         test.update({0.06+ (0.15*(i/15)) : make_components(0.06+ (0.15*(i/15))) for i in range(15)})
+#
+#         # exploring clustering paramater
+#         for k,v in test.items():
+#             v['nb_clusters'] = len(v['clusters'])
+#             v['mean_sample'] = mean([len(c) for c in  v['clusters']])
+#             v['median_sample'] = median([len(c) for c in  v['clusters']])
+#             v['max_sample'] = max([len(c) for c in  v['clusters']])
+#             v['nb_samples'] = sum([len(c) for c in  v['clusters']])
+#             v['nb_samples_over_4'] = sum([len(c) for c in  v['clusters'] if len(c) > 4])
+#             v['nb_clusters_over_4'] = sum([len(c) > 4 for c in  v['clusters']])
+#             del v['clusters']
+#         pandas.DataFrame.from_dict(test, orient="index").to_csv("data/dbs/connected_components_possible_params.csv", index_label="simi_cutoff")
+#         # I picked 0.12
+#
+#     coass_clusters = make_components(0.12)
+#     coass_clusters = [c for c in coass_clusters['clusters'] if len(c) > 4]
+#     coass_clusters = { "coass_{}".format(i) : c for i,c in enumerate(coass_clusters)}
+#     with open(pjoin(root, "data/dbs/coassemblies.tsv"), "w") as handle:
+#         handle.writelines(["{}\t{}\n".format(c, ";".join(v)) for c, v in coass_clusters.items()])
+if os.path.exists(coass_file):
+     with open(coass_file) as handle:
+         coasses = json.load(handle)
 else :
-    coasses = {}
+     coasses = {}
 
 print("#We have ", len(sras_to_do), "single assemblies")
 #print("#We have ", len(coasses), " coassemblies")
